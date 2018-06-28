@@ -1,0 +1,258 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Raytracer | slsdo</title>
+    
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <meta name="description" content="Raytracer" />
+    <meta name="keywords" content="Raytracer" />
+
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
+
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="stylesheet" type="text/css" href="js/lightbox/css/jquery.lightbox-0.5.css" media="screen" />
+
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/lightbox/js/jquery.lightbox-0.5.min.js"></script>
+    <script type="text/javascript">
+        $(function() {
+            $('.group a').lightBox();
+        });
+    </script>
+</head>
+
+<body>
+    <div class="wrapper">
+        <ul id="nav">
+            <li><a href="http://slsdo.github.io/raytracer/" style="border-left:0;">Home</a></li>
+            <li><a href="#scenegraph">Scene Graph</a></li>
+            <li><a href="#meshobj">Mesh Objects</a></li>
+            <li><a href="#raytrace">Raytracing</a></li>
+            <li><a href="#results">Results</a></li>
+            <li><a href="https://github.com/slsdo/raytracer">Code</a></li>
+        </ul>
+        
+        <div id="content">
+            <h1>Raytracer</h1>
+
+            <p><em>A Scene Editor and Raytracer</em></p>
+
+            <p>The original raytracer was created in fall of 2009. In 2010 the program was completely rewritten to improve efficiency, the original scene graph editor was replaced by a more robust and user-friendly one. Several new algorithms were also implemented for intersection tests and bounding volumes, and several rendering techniques such as Fresnel refraction and supersampling were added.</p>
+
+            <div class="group">
+                <div class="group-row">
+                    <div class="group-item"><a href="img/raytracer_oldsetup.jpg"><img src="img/raytracer_oldsetups.png" title="Scene graph setup." alt="raytracer_oldsetup" /></a><div class="sub">The old (and somewhat scroungy) scene editor interface...</div></div>
+                    <div class="group-item"><a href="img/raytracer_oldresult.jpg"><img src="img/raytracer_oldresults.png" title="Resulting raytraced image." alt="raytracer_oldresult" /></a><div class="sub">...and the simple image it produces.</div></div>
+                </div>
+                <div class="group-row">
+                    <div class="group-item"><a href="img/raytracer_newsetup.jpg"><img src="img/raytracer_newsetups.png" title="Scene graph setup." alt="raytracer_newsetup" /></a><div class="sub">The new (and shiny) scene editor interface...</div></div>
+                    <div class="group-item"><a href="img/raytracer_newresult.jpg"><img src="img/raytracer_newresults.png" title="Resulting raytraced image." alt="raytracer_newresult" /></a><div class="sub">...and the much better image it produces.</div></div>
+                </div>
+            </div>
+            <div class="clear"></div>
+
+            <h2>Features</h2>
+
+            <p>The program is composed of two major components, the scene editor where the user can create and interact with the scene, and the renderer where the scene is rendered via raytracing.</p>
+
+            <h3>Scene Graph</h3>
+
+            <ul>
+                <li>Doubly linked list structure for parenting, creation, deletion, and duplication of trees</li>
+                <li>Ability to freely orient the camera and objects in the scene graph</li>
+                <li>Generate mesh objects through either from configuration files or input parameters to represent complex objects</li>
+                <li>Customizable materials</li>
+                <li>Axis-aligned bounding box (AABB), oriented bounding box (OBB), and bounding sphere</li>
+                <li>Image output to a file</li>
+            </ul>
+            
+            <h3>Raytracer</h3>
+
+            <ul>
+                <li>A standard diffuse/specular lighting model</li>
+                <li>Realistic shadows from point (omni) light sources</li>
+                <li>Reflective and partially reflective objects</li>
+                <li>Transparency obeying Beer's law</li>
+                <li>Fresnel refraction</li>
+                <li>Anti-aliasing through supersampling</li>
+                <li>Optimized algorithms for ray-sphere/triangle/box intersection test</li>
+            </ul>
+
+            <h2>Tools and External Libraries</h2>
+
+            <p>The program was coded in C++ using OpenGL/<a href="http://www.opengl.org/resources/libraries/glut/">GLUT</a>.</p>
+
+            <p>For mathematical calculations, a modified version of <a href="algebra3.h.html">C++ Vector and Matrix Algebra routines</a> that was included in <em>Graphics Gems IV</em> was used (other recommended libraries include <a href="OgreMath.zip">OgreMath</a> and <a href="http://www.boost.org/">Boost</a>).</p>
+
+            <p><a href="http://www.lonesock.net/soil.html">SOIL</a> was used to write the rendered image to a BMP file.</p>
+
+            <h2 id="scenegraph">Scene Graph</h2>
+
+            <p>A scene graph is a collection of nodes in a graph or tree structure used to represent the logical and spatial representation of a graphical scene. It is used to maintain and draw a hierarchically structured scene with OpenGL. A mouse-based FPS-style camera is implemented to offer more flexibility for preparing the scene for rendering.</p>
+            
+            <div class="center"><img src="img/raytracer_scenegraph.jpg" title="Scene graph structure." alt="raytracer_scenegraph" /></div>          
+
+            <p>The scene graph supports the following geometric primitives: sphere, cube, and complex mesh objects. The user can modify the scene by creating, deleting, and copying spheres, cubes, as well as furniture such as table, chair, and filing cabinet. Each node has pointers to its parent, first child, as well as the left and right neighbors. A node contain many attributes, including translation, rotation, scaling, as well as bounding box, material type, and other information. Once an attribute is modified, the change is propagated through all of its children via recursion:</p>
+
+<div class="cpp">
+<pre>
+<span title="line1"/>     <font class="comment">1:</font> <font class="keytype">void</font> SceneGraph::doSomethingToNode(Node *node)</span>
+<span title="line2"/>     <font class="comment">2:</font> {</span>
+<span title="line3"/>     <font class="comment">3:</font>     <font class="comment">// Recursively process all children</font></span>
+<span title="line4"/>     <font class="comment">4:</font>     <font class="keyword">if</font> (node<font class="symbols">-</font>&gt;child <font class="symbols">!=</font> NULL)</span>
+<span title="line5"/>     <font class="comment">5:</font>         doSomethingToNode (node<font class="symbols">-</font>&gt;child);</span>
+<span title="line6"/>     <font class="comment">6:</font>     <font class="keyword">if</font> (node <font class="symbols">!=</font> selected) {</span>
+<span title="line7"/>     <font class="comment">7:</font>         <font class="keyword">if</font> (node<font class="symbols">-</font>&gt;next_sibling <font class="symbols">!=</font> NULL)</span>
+<span title="line8"/>     <font class="comment">8:</font>             doSomethingToNode (node<font class="symbols">-</font>&gt;next_sibling);</span>
+<span title="line9"/>     <font class="comment">9:</font>     }</span>
+<span title="line10"/>    <font class="comment">10:</font>     <font class="comment">// Do something to node</font></span>
+<span title="line11"/>    <font class="comment">11:</font>     Do something to node;</span>
+<span title="line12"/>    <font class="comment">12:</font> }</span>
+<span title="line13"/>    <font class="comment">13:</font></span>
+</pre>
+</div>
+
+            <h2 id="meshobj">Mesh Objects</h2>
+
+            <p>The scene renderer supports a robust mesh class that is capable of representing complex objects. The mesh class stores an arbitrary set of triangles that represent the geometry of an object.</p>
+
+            <p>A mesh object is first created by reading from a configuration file that contains a set of points, which are then used to create complex objects through either extrusion or surface revolution. The face list, vertices, and corresponding normal are then calculated and stored in the mesh class for rendering.</p>
+
+            <h3>Extrusions</h3>
+
+            <p>An extrusion is essentially a prism. The polygonal base is either retrieved from the configuration file or defined by the user. If the base is a convex polygon, then the endcaps is displayed, otherwise only the sides appear on the screen. Afterwards, the sides of the extrusion are generated automatically by building triangles out of the vertices.</p>
+
+            <p>To check whether a polygon is convex, we check each vertex of the polygon to see if the angles formed by the previous and the next edge have the same sign (using cross product), if one of the angles have a different sign, then we know the polygon is concave:</p>
+
+<div class="cpp">
+<pre>
+<span title="line1"/>     <font class="comment">1:</font> <font class="keytype">bool</font> Mesh::isConvex()</span>
+<span title="line2"/>     <font class="comment">2:</font> {</span>
+<span title="line3"/>     <font class="comment">3:</font>         if (# of points &lt; 2) <font class="comment">// Check if it's a polygon</font></span>
+<span title="line4"/>     <font class="comment">4:</font>                 <font class="keyword">return</font> <font class="keyword">false</font>;</span>
+<span title="line5"/>     <font class="comment">5:</font> </span>
+<span title="line6"/>     <font class="comment">6:</font>         <font class="comment">// Check if the turning angle at each point has the same sign</font></span>
+<span title="line7"/>     <font class="comment">7:</font>         <font class="keytype">int</font> turn_angle <font class="symbols">=</font> <font class="integer">0</font>;</span>
+<span title="line8"/>     <font class="comment">8:</font>         <font class="keyword">for</font> (<font class="keytype">int</font> ii <font class="symbols">=</font> <font class="integer">0</font>; ii &lt; # of points ; ii<font class="symbols">++</font>) {</span>
+<span title="line9"/>     <font class="comment">9:</font>                 angle <font class="symbols">=</font> (points[ii <font class="symbols">+</font> <font class="integer">1</font>] - points[ii]) X</span>
+<span title="line9"/>     <font class="comment">10:</font>                         (points[ii <font class="symbols">+</font> <font class="integer">2</font>] - points[ii + <font class="integer">1</font>]);</span>
+<span title="line10"/>    <font class="comment">11:</font> 
+<span title="line11"/>    <font class="comment">12:</font>                 <font class="keyword">if</font> (fabs(angle[<font class="integer">1</font>]) &gt; EPSILON) {</span>
+<span title="line12"/>    <font class="comment">13:</font>                         <font class="comment">// If it's negative, the cross product of</font></span>
+<span title="line13"/>    <font class="comment">14:</font>                         <font class="comment">// all vertices should all be negative</font></span>
+<span title="line14"/>    <font class="comment">15:</font>                         <font class="keyword">if</font> (angle[<font class="integer">1</font>] &lt; -EPSILON) {</span>
+<span title="line15"/>    <font class="comment">16:</font>                                 <font class="keyword">if</font> (turning angle <font class="symbols">==</font> <font class="integer">1</font>) {</span>
+<span title="line16"/>    <font class="comment">17:</font>                                         <font class="keyword">return</font> <font class="keyword">false</font>;</span>
+<span title="line17"/>    <font class="comment">18:</font>                                 }</span>
+<span title="line18"/>    <font class="comment">19:</font>                                 turning angle <font class="symbols">=</font> <font class="symbols">-</font><font class="integer">1</font>;</span>
+<span title="line19"/>    <font class="comment">20:</font>                         }</span>
+<span title="line20"/>    <font class="comment">21:</font>                         <font class="comment">// If it's positive, the cross product of</font></span>
+<span title="line21"/>    <font class="comment">22:</font>                         <font class="comment">// all vertices should all be positive</font></span>
+<span title="line22"/>    <font class="comment">23:</font>                         <font class="keyword">else</font> {</span>
+<span title="line23"/>    <font class="comment">24:</font>                                 <font class="keyword">if</font> (turning angle <font class="symbols">==</font> <font class="symbols">-</font><font class="integer">1</font>) {</span>
+<span title="line24"/>    <font class="comment">25:</font>                                         <font class="keyword">return</font> <font class="keyword">false</font>;</span>
+<span title="line25"/>    <font class="comment">26:</font>                                 }</span>
+<span title="line26"/>    <font class="comment">27:</font>                                 turning angle <font class="symbols">=</font> <font class="integer">1</font>;</span>
+<span title="line27"/>    <font class="comment">28:</font>                         }</span>
+<span title="line28"/>    <font class="comment">29:</font>                 }</span>
+<span title="line29"/>    <font class="comment">30:</font>         }</span>
+<span title="line30"/>    <font class="comment">31:</font>         <font class="keyword">return</font> <font class="keyword">true</font>;</span>
+<span title="line31"/>    <font class="comment">32:</font> }</span>
+<span title="line32"/>    <font class="comment">33:</font> </span>
+</pre>
+</div>
+
+            <h3>Surface Revolutions</h3>
+
+            <p>A surfrev takes a polyline and rotates it about the Y-axis to create a 3D object. The rotation is made in discrete steps, and a side is created during each step. For example, with a step size of 30 degrees, we end up with a 12-sided shape. If the polyline ends at the Y-axis, the object is closed at the end by default. If the polyline does not end at the Y-axis, the endcaps are constructed automatically. After the vertices have been determined, triangles are created in a similar fashion as in extrusion.</p>
+
+            <h2>Bounding Volumes</h2>
+
+            <p>For bounding boxes, min/max points for each of the x, y, and z component of each node are calculated. After getting the min/max values to solve for the AABB, the OBB and the bounding sphere can be obtained fairly easily by either applying a node's local transformation to the AABB for its original state to get the OBB, or find the maximum radius from the max/min AABB points for the bounding sphere.</p>
+
+            <p>When changes are made to a node's transformation, the bounding box is updated to reflect the new change. AABB is the simplest to calculate, and is the first to be calculated. To obtain the new AABB, simply find out where the original min/max points for x, y, and z are, then apply the transformation to the points, and compare the new values to the old min/max:</p>
+
+<div class="cpp">
+<pre>
+<span title="line1"/>     <font class="comment">1:</font> <font class="keyword">for</font> (<font class="keytype">int</font> ii <font class="symbols">=</font> <font class="integer">0</font>; ii &lt; <font class="integer">6</font>; ii<font class="symbols">++</font>) {</span>
+<span title="line2"/>     <font class="comment">2:</font>     matrix <font class="keyword">new</font> transformation*old points[ii];</span>
+<span title="line3"/>     <font class="comment">3:</font>     <font class="keyword">if</font> (position_x &lt; aabb_min_x) aabb_min_x <font class="symbols">=</font> position_x;</span>
+<span title="line3"/>     <font class="comment">4:</font>     <font class="keyword">if</font> (position_x &gt; aabb_max_x) aabb_max_x <font class="symbols">=</font> position_x;</span>
+<span title="line4"/>     <font class="comment">5:</font>     <font class="keyword">if</font> (position_y &lt; aabb_min_y) aabb_min_y <font class="symbols">=</font> position_y;</span>
+<span title="line4"/>     <font class="comment">6:</font>     <font class="keyword">if</font> (position_y &gt; aabb_max_y) aabb_max_y <font class="symbols">=</font> position_y;</span>
+<span title="line5"/>     <font class="comment">7:</font>     <font class="keyword">if</font> (position_z &lt; aabb_min_z) aabb_min_z <font class="symbols">=</font> position_z;</span>
+<span title="line5"/>     <font class="comment">8:</font>     <font class="keyword">if</font> (position_z &gt; aabb_max_z) aabb_max_z <font class="symbols">=</font> position_z;</span>
+<span title="line6"/>     <font class="comment">9:</font> }</span>
+<span title="line7"/>     <font class="comment">10:</font> </span>
+</pre>
+</div>
+
+            <h2>Intersection Tests</h2>
+
+            <p>An important part of raytracing involves ray-object intersection tests. So before moving on to the raytracer, we want to make sure we have working (and fast) intersection testing routines. Intersection tests were implemented to support the existing three geometric primitives: sphere, cube, and triangle (mesh).</p>
+
+            <p>For each intersection test, we are given the following: ray origin, ray direction, transformation matrix for the geometric primitive. To make calculations easier, we can use the transformation matrix to transform the ray from world-space to the object-space of the geometric primitive. After we obtain the desired <em>t</em> value, we transform the results back into world space.</p>
+
+            <p>To transform the ray, we need to calculate the inverses of the transformation matrix. To improve performance, we pre-compute the required transformation matrices for each node before we begin the raytracing project.</p>
+
+            <p>Once we have determined that there is an intersection, we need to calculate the normal (a vector that is perpendicular to the object) to use for lighting later.</p>
+
+            <p>For intersection tests, both the algebraic ray-sphere intersection and the geometric ray-sphere intersection tests were implemented. For ray-triangle intersection, the program uses the method described by Mo&ouml;ller and Trumbore in their paper <em>Fast, Minimum Storage Ray/Triangle Intersection</em>. Finally, one simple ray-cube intersection test is the 12 ray-triangle test, but it's very inefficient, so instead we implemented the Slabs method for testing Ray-AABB intersection, as well as a test using Pl&uuml;cker Coordinates. Below are some good resources for intersection tests:</p>
+
+            <ul>
+                <li><em><a href="http://www.graphics.cornell.edu/pubs/1997/MT97.html">Fast, Minimum Storage Ray/Triangle Intersection</a></em> by Tomas Mo&ouml;ller and Ben Trumbore</li>
+                <li><a href="http://www.siggraph.org/education/materials/HyperGraph/raytrace/rtinter3.htm">Ray - Box Intersection</a> (Slabs method)</li>
+                <li><em><a href="http://pages.cpsc.ucalgary.ca/~blob/ps/jgt04.pdf">Fast Ray-Axis Aligned Bounding Box Overlap Tests with Pl&uuml;cker Coordinates</a></em> by Jeffrey Mahovsky and Brian Wyvill</li>
+                <li><a href="http://www.realtimerendering.com/intersections.html">Object/Object Intersection</a> (Good general resource)</li>
+            </ul>
+
+            <h2 id="raytrace">Raytracing</h2>
+
+            <p>When rendering, the raytracer shoots a ray from the eye (viewport) to each pixel on the screen. As the ray intersects objects in its path, it calculates the diffuse/specular effect of lighting on the object at that point and accumulates color. If the object is reflective, the ray will bounce and continue in a new direction, all the while gathering color. To prevent the ray from bouncing infinitely, the default maximum number of bounce is 5. If the ray encounters a transparent object, it will go through the object while obeying <a href="http://scienceworld.wolfram.com/physics/SnellsLaw.html">Snell's law of refraction</a> and <a href="http://scienceworld.wolfram.com/physics/BeersLaw.html">Beer's law</a>.</p>
+            
+            <p>With spherical bounding volumes, we can use Bounding Volume Hierarchies (BVHs) to speed up the rendering process even more.</p>
+
+            <p>Below are some resources used while working on this part of the project:</p>
+
+            <ul>
+                <li><a href="http://ompf2.com/">ompf2.com</a> (A great place for raytracing information)</li>
+                <li><a href="http://web.cs.wpi.edu/~emmanuel/courses/cs563/write_ups/zackw/realistic_raytracing.html">web.cs.wpi.edu/~emmanuel/courses/cs563/write_ups/zackw/realistic_raytracing.html</a></li>
+                <li><a href="http://www-inst.eecs.berkeley.edu/~cs184/fa08/raytrace_journal.php">www-inst.eecs.berkeley.edu/~cs184/fa08/raytrace_journal.php</a></li>
+                <li><a href="http://www.bramz.net/data/writings/reflection_transmission.pdf">www.bramz.net/data/writings/reflection_transmission.pdf</a> (Great resource for reflection/refraction)</li>
+                <li><a href="http://devmaster.net/posts/2836/raytracing-theory-implementation-part-1-introduction">devmaster.net/posts/2836/raytracing-theory-implementation-part-1-introduction</a></li>
+            </ul>
+
+            <h2>Future</h2>
+
+            <p>There still seems to be a bit of hiccup in quality when rendering using Fresnel reflection. OBJ file support should be added so the scene renderer can import .OBJ files. Another improvement is to add a spline creator, so users can "draw" shapes, which are then converted to mesh objects. <a href="http://web.cs.wpi.edu/~emmanuel/courses/cs563/write_ups/zackw/photon_mapping/PhotonMapping.html">Photon mapping</a> is another nice-to-have effects.</p>
+
+            <h2 id="results">Results</h2>
+
+            <div class="group">
+                <div class="group-row">
+                    <div class="group-item"><a href="img/raytracer_noantialias.jpg"><img src="img/raytracer_noantialiass.png" title="No anti-aliasing." alt="raytracer_noantialias" /></a><div class="sub">No anti-aliasing.</div></div>
+                    <div class="group-item"><a href="img/raytracer_antialias.jpg"><img src="img/raytracer_antialiass.png" title="With anti-aliasing." alt="raytracer_antialias" /></a><div class="sub">With anti-aliasing.</div></div>
+                </div>
+                <div class="group-row">
+                    <div class="group-item"><a href="img/raytracer_hirefl.jpg"><img src="img/raytracer_hirefls.png" title="High reflection." alt="raytracer_hirefl" /></a><div class="sub">High reflection.</div></div>
+                    <div class="group-item"><a href="img/raytracer_lowspec.jpg"><img src="img/raytracer_lowspecs.png" title="Low specular, regular refraction." alt="raytracer_lowspec" /></a><div class="sub">Low specular, regular refraction.</div></div>
+                </div>
+                <div class="group-row">
+                    <div class="group-item"><a href="img/raytracer_refr.jpg"><img src="img/raytracer_refrs.png" title="Low specular, regular refraction." alt="raytracer_refr" /></a><div class="sub">Low specular, regular refraction.</div></div>
+                    <div class="group-item"><a href="img/raytracer_mesh.jpg"><img src="img/raytracer_meshs.png" title="Mesh object." alt="raytracer_mesh" /></a><div class="sub">Mesh object.</div></div>
+                </div>
+            </div>
+
+            <h3>Download</h3>
+
+            <div class="center">[ <strong><a href="raytracer.zip">Raytracer v.1.0</a></strong> ]</div>
+            
+            <div class="clear"></div>
+        </div>
+                        
+        <div id="footer">
+            <p>&copy; 2010 slsdo</p>
+        </div>
+    </div>
+</body>
+</html>
